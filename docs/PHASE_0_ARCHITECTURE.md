@@ -203,3 +203,4 @@ Review checklist: accept calm UI; accept Android 10+ baseline; accept approximat
 [15] https://developers.google.com/ar/develop/java/camera-sharing
 [16] https://developers.google.com/ar/develop/java/depth/developer-guide
 [17] https://developers.google.com/edge/mediapipe/solutions/setup_android
+

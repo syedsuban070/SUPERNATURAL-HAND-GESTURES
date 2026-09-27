@@ -28,3 +28,4 @@ Current execution host has Java 17 but no detected Android SDK or Gradle install
 No build commands apply to this documentation-only commit. Planned commands and device QA gates are in the architecture document.
 
 Visual effects are fictional digital effects.
+
