@@ -1,0 +1,42 @@
+name: Publish verified preview
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-preview.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: publish-preview-v0.1.0
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve and verify previously tested APK
+        run: |
+          set -euo pipefail
+          test "$(gh run view 36391916611 --json conclusion --jq .conclusion)" = success
+          gh run download 36391916611 --name Hyperpixelacity-debug-APK --dir release
+          echo 'ae8dd36afbfddb7da7913a6c8cbcdc28c44414c7fbde089243e563429e1aa8b1  release/app-debug.apk' | sha256sum --check
+          mv release/app-debug.apk release/Hyperpixelacity-0.1.0-preview.apk
+          cd release
+          sha256sum Hyperpixelacity-0.1.0-preview.apk > SHA256SUMS.txt
+      - name: Package documentation and test evidence
+        run: |
+          gh run download 36391916611 --name Android-test-reports --dir test-reports
+          zip -qr release/Android-test-reports.zip test-reports
+          cp docs/RELEASE.md release/INSTALL-AND-RELEASE.md
+          cp docs/DEVICE_QA.md release/DEVICE_QA.md
+          cp docs/THIRD_PARTY_NOTICES.md release/THIRD_PARTY_NOTICES.md
+          cp docs/DELIVERY_STATUS.md release/BUILD-STATUS.md
+          cp test-reports/onboarding.png release/onboarding.png
+      - name: Publish release assets
+        run: |
+          gh release create v0.1.0-preview release/* --target 336a646938b7ec21b9694bba82df19cb76bd88e1 --title 'Hyperpixelacity 0.1.0 — offline Android preview' --prerelease --notes-file docs/PREVIEW_NOTES.md
