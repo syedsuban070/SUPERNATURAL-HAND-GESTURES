@@ -42,7 +42,7 @@ class GestureEngine {
    val age=(time-entered)/1000f
    center=Point(launch.x+velocity.x*age,launch.y+velocity.y*age)
    charge=(1-age/1.2f).coerceIn(0f,1f)
-   radius=(previous.radius*.98f).coerceAtLeast(.025f)
+   radius=(previous.radius*exp(-dt*.6f)).coerceAtLeast(.025f)
    if(age>=1.2f) transition(OrbState.COOLDOWN)
   } else if(state==OrbState.COOLDOWN) { if(time-entered>=800) transition(OrbState.IDLE) }
   else if(settings.effect in 1..3) {

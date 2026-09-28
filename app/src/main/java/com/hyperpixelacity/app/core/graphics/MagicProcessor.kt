@@ -12,6 +12,7 @@ import com.hyperpixelacity.app.core.model.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicReference
 
 /** A single GL owner composites the same scene into preview and encoder outputs. */
 class MagicProcessor(context:Context, private val error:(String)->Unit) : SurfaceProcessor, AutoCloseable {
@@ -28,6 +29,8 @@ class MagicProcessor(context:Context, private val error:(String)->Unit) : Surfac
  private var stopped=false
  private var inputs=0
  private val outputs=linkedMapOf<SurfaceOutput,EGLSurface>()
+ private data class Packet(val scene:Scene,val settings:StudioSettings,val sensorToAnalysis:Matrix,val width:Int,val height:Int)
+ private val pending=AtomicReference<Packet?>(null)
  private var scene=Scene()
  private var settings=StudioSettings()
  private var analysisToSensor=Matrix()
@@ -41,10 +44,10 @@ class MagicProcessor(context:Context, private val error:(String)->Unit) : Surfac
  private val mapped=FloatArray(2)
  private val uniforms=mutableMapOf<String,Int>()
  private fun u(name:String)=uniforms.getOrPut(name) { GLES30.glGetUniformLocation(program,name) }
- fun update(next:Scene,s:StudioSettings,sensorToAnalysis:Matrix,w:Int,h:Int) { executor.execute {
-  scene=next;settings=s;analysisWidth=w;analysisHeight=h
-  if(!sensorToAnalysis.invert(analysisToSensor)) { scene=Scene() }
- } }
+ fun update(next:Scene,s:StudioSettings,sensorToAnalysis:Matrix,w:Int,h:Int) {
+  // Replace stale tracking snapshots rather than queuing them behind GPU work.
+  pending.set(Packet(next,s,Matrix(sensorToAnalysis),w,h))
+ }
  fun configure(s:StudioSettings) { executor.execute { settings=s } }
  private fun init() {
   if(display!=EGL14.EGL_NO_DISPLAY) return
@@ -119,6 +122,10 @@ void main(){ gl_Position=vec4(aPosition,0.0,1.0);vCamera=(uTransform*vec4(aPosit
   return Point(mapped[0]/w,mapped[1]/h)
  }
  private fun draw(texture:SurfaceTexture,textureName:Int,w:Int,h:Int,matrix:Matrix) {
+  pending.getAndSet(null)?.let { packet ->
+   scene=packet.scene;settings=packet.settings;analysisWidth=packet.width;analysisHeight=packet.height
+   if(!packet.sensorToAnalysis.invert(analysisToSensor)) scene=Scene()
+  }
   val time=texture.timestamp/1_000_000
   val fresh=time-scene.timeMs in -40..200
   val center=map(scene.center,matrix,w,h)

@@ -33,7 +33,7 @@ class HandTracker(context: Context, private val onResult: (Long,List<Hand>,Matri
     onResult(result.timestampMs(),hands,Matrix(matrix),width,height)
    } finally { releaseInput();busy.set(false) }
   }.setErrorListener { releaseInput();busy.set(false);onError("Hand tracking stopped. Reopen the studio to retry.") }.build())
- private fun releaseInput() { image?.close();image=null;bitmap?.recycle();bitmap=null }
+ @Synchronized private fun releaseInput() { image?.close();image=null;bitmap?.recycle();bitmap=null }
  fun analyze(proxy:ImageProxy) {
   if(!busy.compareAndSet(false,true)) { proxy.close();return }
   try {

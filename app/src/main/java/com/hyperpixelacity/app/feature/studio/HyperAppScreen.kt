@@ -217,7 +217,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
     Box(Modifier.size(52.dp).clip(CircleShape).background(Color(e.color)).clickable{draft=draft.copy(hue=e.color)}.semantics{contentDescription="Use ${e.name} color"})
    } }
    Text("Gesture: ${Effects.all[draft.effect].guide}",color=MaterialTheme.colorScheme.onSurfaceVariant)
-   Button({save(draft);back()},Modifier.fillMaxWidth().heightIn(min=52.dp)) {Text("Save preset")}
+   Button({save(draft);back()},Modifier.fillMaxWidth().heightIn(min=52.dp)) {Text("Save adjustments")}
    TextButton({draft=draft.copy(intensity=1f,size=1f,glow=1f,density=.5f,trailSeconds=1f,hue=0)}){Text("Reset adjustments")}
    Spacer(Modifier.height(20.dp))
   }
