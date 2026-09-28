@@ -4,7 +4,7 @@
 An offline native Android camera studio for fingertip trails, energy orbs and gesture-controlled effects. Built for Evidence Of One.
 
 ## Current status
-An early implementation, currently undergoing CI build verification. It is not yet physically device-tested or production-ready. Build results and test APKs appear under [Actions](https://github.com/syedsuban070/SUPERNATURAL-HAND-GESTURES/actions).
+A compiled development preview. CI build, lint, eight JVM tests, two Android emulator tests, APK signing and alignment verification pass. It is not yet physically device-tested or production-ready. Build results and test APKs appear under [Actions](https://github.com/syedsuban070/SUPERNATURAL-HAND-GESTURES/actions).
 
 ## Implemented
 - Kotlin, Compose Material 3, Hilt and local DataStore settings.
@@ -17,16 +17,16 @@ An early implementation, currently undergoing CI build verification. It is not y
 - No account, Internet permission, microphone permission, advertising or cloud inference.
 
 ## Build
-Requirements: Java 17, Gradle 9.3.1, Android SDK 37.0 and Build Tools 36.0.0, Python 3. Initial dependency/model downloads require internet; the installed app does not.
+Requirements: Java 17, Android SDK 37.0 and Build Tools 36.0.0, Python 3. Initial dependency/model downloads require internet; the installed app does not.
 
 ```sh
 sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
 python3 tools/download_model.py
-gradle :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Gradle version is pinned in CI. A standard wrapper will be added from the successful build output. No signing key is committed; this command produces a development APK, not a store release.
+The checked-in standard Gradle wrapper pins Gradle 9.3.1. On Windows use gradlew.bat. No signing key is committed; this command produces a development APK, not a store release.
 
 ## Use
 Allow camera. Choose an effect and follow its gesture guide. Record, then open **My clips**. Files are stored under Movies/Hyperpixelacity. For an unsupported camera stream combination, live effects remain available with recording disabled and an explanation.
