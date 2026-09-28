@@ -40,6 +40,7 @@ class CameraStudio(private val context:Context) : AutoCloseable {
  private var lastEffect=-1
  fun configure(s:StudioSettings) { settings=s;processor?.configure(s) }
  private fun fail(message:String) { main.execute { mutable.value=mutable.value.copy(error=message) } }
+ @androidx.annotation.OptIn(markerClass = [ExperimentalMirrorMode::class])
  fun bind(owner:LifecycleOwner,view:PreviewView,front:Boolean) {
   val ticket=++generation
   val future=ProcessCameraProvider.getInstance(context)
@@ -59,6 +60,7 @@ class CameraStudio(private val context:Context) : AutoCloseable {
        main.execute { mutable.value=mutable.value.copy(hands=hands.size,gesture=if(hands.isEmpty())"Show your hands" else if(scene.pinched)"Pinch held" else scene.state.name.lowercase().replaceFirstChar { it.uppercase() }) }
       },::fail)
      } catch(e:Exception) { fail("The hand model could not start on this device.") }
+     catch(e:LinkageError) { fail("Hand tracking is not supported by this device CPU.") }
     }
     val mirror=if(settings.mirror) MirrorMode.MIRROR_MODE_ON_FRONT_ONLY else MirrorMode.MIRROR_MODE_OFF
     val rotation=view.display?.rotation?:Surface.ROTATION_0

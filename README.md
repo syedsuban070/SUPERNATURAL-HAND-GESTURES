@@ -1,31 +1,37 @@
 # HYPERPIXELACITY
 **Create cinematic powers with your hands.**
 
-An offline-first native Android camera studio planned for fingertip trails, palm effects, energy orbs and gesture-controlled objects.
+An offline native Android camera studio for fingertip trails, energy orbs and gesture-controlled effects. Built for Evidence Of One.
 
 ## Current status
-**Phase 0: technical discovery and architecture.**
-This repository currently contains planning documents only. No Android application, build verification, or APK is available yet.
+An early implementation, currently undergoing CI build verification. It is not yet physically device-tested or production-ready. Build results and test APKs appear under [Actions](https://github.com/syedsuban070/SUPERNATURAL-HAND-GESTURES/actions).
 
-Read [the technical decisions, UI direction, dependency candidates, risks and phased acceptance criteria](docs/PHASE_0_ARCHITECTURE.md).
+## Implemented
+- Kotlin, Compose Material 3, Hilt and local DataStore settings.
+- CameraX front/rear preview and local MediaPipe hand tracking.
+- Index trails, palm effects, charged two-hand orbs, flick projectiles and pinch-following crystals.
+- Ten original procedural OpenGL ES 3.0 effect styles.
+- A camera SurfaceProcessor feeding both preview and video, so the encoder receives the composite.
+- Silent recording (up to 60 seconds), countdown, local playback, share, rename and delete.
+- Quiet charcoal/ivory controls; effect tuning, favorites, quality and reduced motion.
+- No account, Internet permission, microphone permission, advertising or cloud inference.
 
-## Intended experience
-- Local hand tracking using a bundled MediaPipe model.
-- Custom OpenGL effects composed with the camera before video encoding.
-- Quiet charcoal/ivory UI, restrained accents and accessible controls.
-- No login, paid cloud API or uploaded camera frames for the core studio.
-- Optional depth features only when device support and integration are verified.
+## Build
+Requirements: Java 17, Gradle 9.3.1, Android SDK 37.0 and Build Tools 36.0.0, Python 3. Initial dependency/model downloads require internet; the installed app does not.
 
-## Implementation direction
-Kotlin · Compose Material 3 · Hilt · CameraX · MediaPipe · OpenGL ES 3.0 · DataStore.
-Proposed minimum: Android 10 (API 29). Target: Android 17 (API 37).
-Dependency candidates are documented; the combined toolchain is not yet compilation-verified.
+```sh
+sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+python3 tools/download_model.py
+gradle :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
 
-## Delivery gate
-The owner requested approval between phases. Phase 1 starts after Phase 0 approval.
-Current execution host has Java 17 but no detected Android SDK or Gradle installation, and a direct SDK download connection timed out. A functioning Android build environment is required before an APK can be delivered.
+Gradle version is pinned in CI. A standard wrapper will be added from the successful build output. No signing key is committed; this command produces a development APK, not a store release.
 
-No build commands apply to this documentation-only commit. Planned commands and device QA gates are in the architecture document.
+## Use
+Allow camera. Choose an effect and follow its gesture guide. Record, then open **My clips**. Files are stored under Movies/Hyperpixelacity. For an unsupported camera stream combination, live effects remain available with recording disabled and an explanation.
 
-Visual effects are fictional digital effects.
+## Limits
+This preview does not implement depth/finger occlusion, audio, trim, two-hand object rotation, or arbitrary AI-generated models. A 2D flick approximates throwing. See [device QA and known limits](docs/DEVICE_QA.md), [delivery status](docs/DELIVERY_STATUS.md), and [initial architecture](docs/PHASE_0_ARCHITECTURE.md).
 
+Visual effects are fictional digital effects. The owner authorized ongoing development without approval gates.

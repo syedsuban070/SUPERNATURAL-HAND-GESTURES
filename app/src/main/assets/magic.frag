@@ -27,7 +27,8 @@ void main(){
    float dist=segment(vCamera*vec2(uAspect,1.),uTrail[i-1].xy*vec2(uAspect,1.),uTrail[i].xy*vec2(uAspect,1.));
    fx+=uTrail[i].z*(uColor*halo(dist,.006+uGlow*.005)*.45+vec3(halo(dist,.0018))*.65)*uIntensity;
   }
- }else if(uEffect>=1 && uEffect<=3){
+ }else if(power>.001 && d<r*4.) {
+ if(uEffect>=1 && uEffect<=3){
   float noise=sin(a*9.+uTime*3.)*sin(a*13.-uTime*2.)*.04;
   float shell=halo(d-r*(.8+noise),r*.07);
   fx=uColor*(halo(d,r*.6)*uGlow+shell*1.8)+vec3(halo(d,r*.14))*2.;
@@ -54,6 +55,7 @@ void main(){
  }
  if(uEffect!=0 && power>.0 && uQuality>0){
   for(int i=0;i<16;i++){if(float(i)>uDensity*16.)break;float n=float(i);float ang=n*2.4+uTime*(.2+n*.02);float rr=r*(1.1+fract(uTime*.2+n*.17)*1.4);vec2 sp=vec2(cos(ang),sin(ang))*rr;fx+=uColor*halo(length(p-sp),r*.018)*power*.6;}
+ }
  }
  for(int i=0;i<42;i++){if(i>=uLandmarkCount)break;float dd=length((vCamera-uLandmarks[i])*vec2(uAspect,1.));fx+=vec3(.3,1.,.65)*step(dd,.004);}
  fragColor=vec4(clamp(camera+fx,0.,1.),1.);

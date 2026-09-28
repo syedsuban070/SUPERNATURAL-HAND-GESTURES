@@ -23,6 +23,7 @@ class GestureEngine {
    if(old==null || time-previous.timeMs>200 || old.palm.distance(h.palm)>.3f) h else h.copy(points=h.points.mapIndexed { i,p -> old.points[i].mix(p,1-exp(-dt*24)) })
   }
   val h=hands.firstOrNull()
+  if(h?.id!=previous.hands.firstOrNull()?.id || (h!=null && previous.hands.isNotEmpty() && h.palm.distance(previous.hands.first().palm)>.3f)) { trail.clear();pinched=false;pinchCandidate=0;pinchExit=0;velocity=Point(0f,0f) }
   if(h==null) { pinched=false; pinchCandidate=0; pinchExit=0; openSince=0 }
   else {
    if(!pinched) {

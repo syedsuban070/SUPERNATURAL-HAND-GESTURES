@@ -2,7 +2,11 @@ name: Android APK
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md"]
   workflow_dispatch:
+concurrency:
+  group: android-main
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -31,12 +35,40 @@ jobs:
           echo 'fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1  app/src/main/assets/hand_landmarker.task' | sha256sum --check
       - name: Build and test
         run: gradle :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --stacktrace
+      - name: Generate standard Gradle wrapper
+        run: gradle wrapper --gradle-version 9.3.1 --distribution-type bin
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: GLES3 device smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated
+          script: |
+            gradle :app:connectedDebugAndroidTest --stacktrace
+            adb shell am start -n com.hyperpixelacity.app/.MainActivity
+            sleep 3
+            adb exec-out screencap -p > app/build/reports/onboarding.png
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Hyperpixelacity-debug-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+      - name: Upload reproducible build wrapper
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gradle-wrapper
+          path: |
+            gradlew
+            gradlew.bat
+            gradle/wrapper/
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4

@@ -2,7 +2,7 @@
 Create cinematic powers with your hands.
 
 Date: 28 September 2026 (Asia/Karachi).
-Status: architecture proposal published for owner approval. No application code, APK, build success, or device performance is claimed.
+Status: historical architecture proposal. Owner approved all phases on 28 September 2026; delivery status now controls execution. No application code, APK, build success, or device performance is claimed.
 
 ## Objective and acceptance
 Choose an offline native Android architecture, define recording before implementation, verify available stable dependency candidates, expose unknowns, and establish measurable delivery gates.
@@ -157,7 +157,7 @@ Quality drops under sustained frame-time/thermal pressure with hysteresis. Bound
 | Model license/offline availability | High | Bundle verified model + hash + license; airplane-mode first-run test |
 
 ## Phases and approval gates
-0: This research/architecture record. Await explicit approval before Phase 1, as requested.
+0: Research/architecture record approved. All subsequent phases authorized without additional approval.
 1: Gradle wrapper/catalog, manifest, Application/Hilt, MainActivity, Compose navigation/theme, permission/onboarding and CI. Gate: assembled debug APK + lint/test results; otherwise report blocked.
 2: CameraController/CameraX studio. Gate: both cameras, denial/regrant, resize, background/reopen.
 3: bundled Hand Landmarker and debug overlay. Gate: offline 0/1/2 hands, rotation/mirror, model errors.
