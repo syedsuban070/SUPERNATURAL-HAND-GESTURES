@@ -52,6 +52,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated
           script: |
             gradle :app:connectedDebugAndroidTest --stacktrace
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -n com.hyperpixelacity.app/.MainActivity
             sleep 3
             adb exec-out screencap -p > app/build/reports/onboarding.png
