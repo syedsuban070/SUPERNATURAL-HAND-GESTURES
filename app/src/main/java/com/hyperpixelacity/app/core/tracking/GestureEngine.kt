@@ -18,7 +18,7 @@ class GestureEngine {
  fun update(time: Long, input: List<Hand>, settings: StudioSettings): Scene {
   if(time <= previous.timeMs) return previous
   val dt=(time-previous.timeMs).coerceIn(1,100)/1000f
-  val hands=input.filter { it.valid }.take(2).map { h ->
+  val hands=input.filter { it.valid }.sortedBy { it.id }.take(2).map { h ->
    val old=previous.hands.find { it.id==h.id }
    if(old==null || time-previous.timeMs>200 || old.palm.distance(h.palm)>.3f) h else h.copy(points=h.points.mapIndexed { i,p -> old.points[i].mix(p,1-exp(-dt*24)) })
   }
@@ -49,7 +49,7 @@ class GestureEngine {
    if(pair) {
     val a=hands[0].palm;val b=hands[1].palm
     val next=Point((a.x+b.x)/2,(a.y+b.y)/2)
-    radius=(a.distance(b)*.38f).coerceIn(.035f,.22f)
+    radius=(hands[0].distance(a,b)*.38f).coerceIn(.035f,.22f)
     if(state==OrbState.IDLE || state==OrbState.LOST) transition(OrbState.CANDIDATE)
     if(state==OrbState.CANDIDATE && time-entered>=150) transition(OrbState.CHARGING)
     if(state==OrbState.CHARGING) { charge=((time-entered)/450f).coerceIn(0f,1f);if(charge>=1) transition(OrbState.HELD) }

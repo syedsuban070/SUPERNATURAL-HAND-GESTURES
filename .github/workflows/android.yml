@@ -23,12 +23,12 @@ jobs:
         with:
           gradle-version: '9.3.1'
       - name: Install Android platform
-        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
       - name: Bundle hand model
         run: |
           mkdir -p app/src/main/assets
           curl --fail --location --retry 3 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task' -o app/src/main/assets/hand_landmarker.task
-          sha256sum app/src/main/assets/hand_landmarker.task
+          echo 'fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1  app/src/main/assets/hand_landmarker.task' | sha256sum --check
       - name: Build and test
         run: gradle :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --stacktrace
       - name: Upload APK

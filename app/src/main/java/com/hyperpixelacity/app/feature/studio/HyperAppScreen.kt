@@ -105,7 +105,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
  }
  var front by rememberSaveable { mutableStateOf(true) }
  var retry by remember { mutableIntStateOf(0) }
- val camera=remember(front,s.mirror,retry) { CameraStudio(context) }
+ val camera=remember(front,s.mirror,s.quality,retry) { CameraStudio(context) }
  val preview=remember(camera) { PreviewView(context).apply { implementationMode=PreviewView.ImplementationMode.COMPATIBLE;scaleType=PreviewView.ScaleType.FIT_CENTER } }
  val status by camera.status.collectAsStateWithLifecycle()
  val scope=rememberCoroutineScope()
@@ -119,9 +119,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
   onDispose { countdownJob?.cancel();count=0;owner.lifecycle.removeObserver(observer);camera.close() }
  }
  val busy=status.recording || status.finalizing || count>0
- Box(Modifier.fillMaxSize().background(Color.Black)) {
-  AndroidView({ preview },Modifier.fillMaxSize())
-  Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp),verticalArrangement=Arrangement.SpaceBetween) {
+ val header: @Composable () -> Unit = {
    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
      Surface(color=Color(0xDD202326),shape=RoundedCornerShape(24.dp)) { Text("HYPERPIXELACITY",Modifier.padding(14.dp),style=MaterialTheme.typography.labelLarge) }
@@ -135,7 +133,8 @@ fun HyperAppScreen(vm:StudioViewModel) {
     } }
     if(s.debug) Surface(color=Color(0xDD202326)) { Text("GL ES 3 · ${listOf("Low","Balanced","High")[s.quality]}\nDepth: unavailable · tracking confidence: not exposed",Modifier.padding(10.dp),style=MaterialTheme.typography.labelSmall) }
    }
-   if(count>0) Text(count.toString(),Modifier.align(Alignment.CenterHorizontally),style=MaterialTheme.typography.displayLarge,color=Color.White)
+ }
+ val controls: @Composable () -> Unit = {
    Surface(color=Color(0xEC202326),shape=RoundedCornerShape(28.dp)) {
     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
      Text(Effects.all[s.effect].name,style=MaterialTheme.typography.titleLarge)
@@ -156,10 +155,25 @@ fun HyperAppScreen(vm:StudioViewModel) {
      }
      Text("Fictional digital effects · Silent video",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
+   } }
+ BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
+  AndroidView({ preview },Modifier.fillMaxSize())
+  if(maxWidth > maxHeight) {
+   Row(Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { header();if(count>0)Text(count.toString(),style=MaterialTheme.typography.displayLarge) }
+    Column(Modifier.width(320.dp).fillMaxHeight().verticalScroll(rememberScrollState())) { controls() }
+   }
+  } else {
+   Column(Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.SpaceBetween) {
+    header()
+    if(count>0)Text(count.toString(),Modifier.align(Alignment.CenterHorizontally),style=MaterialTheme.typography.displayLarge,color=Color.White)
+    Spacer(Modifier.height(24.dp))
+    controls()
    }
   }
  }
 }
+
 @Composable private fun Page(title:String,back:()->Unit,content:@Composable ColumnScope.()->Unit) {
  Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal=20.dp)) {
   Row(Modifier.fillMaxWidth().padding(vertical=12.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -204,7 +218,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
    } }
    Text("Gesture: ${Effects.all[draft.effect].guide}",color=MaterialTheme.colorScheme.onSurfaceVariant)
    Button({save(draft);back()},Modifier.fillMaxWidth().heightIn(min=52.dp)) {Text("Save preset")}
-   TextButton({draft=StudioSettings(effect=s.effect,onboarded=s.onboarded, favorites=s.favorites,mirror=s.mirror,quality=s.quality)}){Text("Reset adjustments")}
+   TextButton({draft=draft.copy(intensity=1f,size=1f,glow=1f,density=.5f,trailSeconds=1f,hue=0)}){Text("Reset adjustments")}
    Spacer(Modifier.height(20.dp))
   }
  }

@@ -5,12 +5,13 @@ data class Point(val x: Float, val y: Float, val z: Float = 0f) {
     fun distance(p: Point) = hypot(x-p.x,y-p.y)
     fun mix(p: Point, a: Float) = Point(x+(p.x-x)*a,y+(p.y-y)*a,z+(p.z-z)*a)
 }
-data class Hand(val id: String, val points: List<Point>, val handednessScore: Float, val world: List<Point> = emptyList()) {
+data class Hand(val id: String, val points: List<Point>, val handednessScore: Float, val world: List<Point> = emptyList(), val aspect: Float = 1f) {
     val palm get() = listOf(0,5,9,13,17).map { points[it] }.let { ps -> Point(ps.sumOf { it.x.toDouble() }.toFloat()/5,ps.sumOf { it.y.toDouble() }.toFloat()/5) }
-    val width get() = points[5].distance(points[17]).coerceAtLeast(0.001f)
-    val pinchRatio get() = points[4].distance(points[8])/width
-    val open get() = listOf(8,12,16,20).count { points[it].distance(points[0]) > points[it-2].distance(points[0])*1.15f } >= 4
-    val indexExtended get() = points[8].distance(points[0]) > points[6].distance(points[0])*1.15f
+    fun distance(a: Point, b: Point) = hypot(a.x-b.x, (a.y-b.y)/aspect.coerceAtLeast(.01f))
+    val width get() = distance(points[5], points[17]).coerceAtLeast(0.001f)
+    val pinchRatio get() = distance(points[4],points[8])/width
+    val open get() = listOf(8,12,16,20).count { distance(points[it],points[0]) > distance(points[it-2],points[0])*1.15f } >= 4
+    val indexExtended get() = distance(points[8],points[0]) > distance(points[6],points[0])*1.15f
     val valid get() = points.size == 21 && points.all { it.x.isFinite() && it.y.isFinite() && it.x in -0.1f..1.1f && it.y in -0.1f..1.1f }
 }
 enum class OrbState { IDLE, CANDIDATE, CHARGING, HELD, PROJECTILE, COOLDOWN, LOST }

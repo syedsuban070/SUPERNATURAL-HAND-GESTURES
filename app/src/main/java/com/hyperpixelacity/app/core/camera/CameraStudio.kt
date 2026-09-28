@@ -37,6 +37,7 @@ class CameraStudio(private val context:Context) : AutoCloseable {
  @Volatile private var closed=false
  private var generation=0
  private var lastAnalyzed=0L
+ private var lastEffect=-1
  fun configure(s:StudioSettings) { settings=s;processor?.configure(s) }
  private fun fail(message:String) { main.execute { mutable.value=mutable.value.copy(error=message) } }
  fun bind(owner:LifecycleOwner,view:PreviewView,front:Boolean) {
@@ -52,6 +53,7 @@ class CameraStudio(private val context:Context) : AutoCloseable {
     analysis.execute {
      try {
       tracker=HandTracker(context,{ time,hands,matrix,w,h ->
+       if(lastEffect!=settings.effect) { engine.reset();lastEffect=settings.effect }
        val scene=engine.update(time,hands,settings)
        processor?.update(scene,settings,matrix,w,h)
        main.execute { mutable.value=mutable.value.copy(hands=hands.size,gesture=if(hands.isEmpty())"Show your hands" else if(scene.pinched)"Pinch held" else scene.state.name.lowercase().replaceFirstChar { it.uppercase() }) }
@@ -68,7 +70,8 @@ class CameraStudio(private val context:Context) : AutoCloseable {
       val interval=when(settings.quality) { 0->66;2->33;else->42 }
       if(closed || time-lastAnalyzed<interval || tracker==null) image.close() else { lastAnalyzed=time;tracker?.analyze(image) }
      } }
-    val rec=Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HD,FallbackStrategy.lowerQualityOrHigherThan(Quality.HD))).build()
+    val desired=if(settings.quality==0) Quality.SD else Quality.HD
+    val rec=Recorder.Builder().setQualitySelector(QualitySelector.from(desired,FallbackStrategy.lowerQualityOrHigherThan(desired))).build()
     capture=VideoCapture.Builder(rec).setTargetRotation(rotation).setMirrorMode(mirror).build()
     fun group(withVideo:Boolean)=UseCaseGroup.Builder().addUseCase(preview!!).addUseCase(analyzer!!).addEffect(processor!!.effect).apply { if(withVideo)addUseCase(capture!!) }.build()
     try { provider!!.bindToLifecycle(owner,selector,group(true)) }

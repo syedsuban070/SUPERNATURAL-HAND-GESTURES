@@ -28,7 +28,7 @@ class HandTracker(context: Context, private val onResult: (Long,List<Hand>,Matri
    try {
     val hands=result.landmarks().mapIndexed { i,ps ->
      fun inverse(x:Float,y:Float):Point = when(rotation) { 90->Point(y,1-x);180->Point(1-x,1-y);270->Point(1-y,x);else->Point(x,y) }
-     Hand(result.handedness()[i].first().categoryName(),ps.map { inverse(it.x(),it.y()).copy(z=it.z()) },result.handedness()[i].first().score(),result.worldLandmarks()[i].map { Point(it.x(),it.y(),it.z()) })
+     Hand(result.handedness()[i].first().categoryName(),ps.map { inverse(it.x(),it.y()).copy(z=it.z()) },result.handedness()[i].first().score(),result.worldLandmarks()[i].map { Point(it.x(),it.y(),it.z()) },width.toFloat()/height)
     }
     onResult(result.timestampMs(),hands,Matrix(matrix),width,height)
    } finally { releaseInput();busy.set(false) }
