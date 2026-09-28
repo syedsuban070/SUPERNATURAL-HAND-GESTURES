@@ -12,6 +12,30 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class GraphicsSmokeTest {
+ @Test fun bundledModelRunsOfflineOnBlankFrame() {
+  val context=InstrumentationRegistry.getInstrumentation().targetContext
+  val latch=java.util.concurrent.CountDownLatch(1)
+  val failure=java.util.concurrent.atomic.AtomicReference<Throwable?>(null)
+  val bitmap=android.graphics.Bitmap.createBitmap(256,256,android.graphics.Bitmap.Config.ARGB_8888)
+  val image=com.google.mediapipe.framework.image.BitmapImageBuilder(bitmap).build()
+  val task=com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker.createFromOptions(context,
+   com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker.HandLandmarkerOptions.builder()
+    .setBaseOptions(com.google.mediapipe.tasks.core.BaseOptions.builder().setModelAssetPath("hand_landmarker.task").build())
+    .setRunningMode(com.google.mediapipe.tasks.vision.core.RunningMode.LIVE_STREAM)
+    .setNumHands(2)
+    .setResultListener { result,_ ->
+     if(result.landmarks().isNotEmpty()) failure.set(AssertionError("Blank frame unexpectedly contained hands"))
+     latch.countDown()
+    }
+    .setErrorListener { failure.set(it);latch.countDown() }.build())
+  try {
+   task.detectAsync(image,1000L)
+   assertTrue("No model callback within 30 seconds",latch.await(30,java.util.concurrent.TimeUnit.SECONDS))
+   failure.get()?.let { throw AssertionError("Offline hand inference failed",it) }
+  } finally {task.close();image.close();bitmap.recycle()}
+  assertEquals(android.content.pm.PackageManager.PERMISSION_DENIED,context.packageManager.checkPermission(android.Manifest.permission.INTERNET,context.packageName))
+ }
+
  @Test fun proceduralEffectShaderCompilesOnGles3() {
   val display=EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
   assertTrue(EGL14.eglInitialize(display,IntArray(2),0,IntArray(2),1))
