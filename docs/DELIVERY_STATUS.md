@@ -17,3 +17,12 @@ Source commit: `336a646938b7ec21b9694bba82df19cb76bd88e1`.
 APK SHA-256: `ae8dd36afbfddb7da7913a6c8cbcdc28c44414c7fbde089243e563429e1aa8b1`.
 
 Universal debug APK: 100,110,271 bytes, including the offline model and native architectures. APK is available in the successful workflow artifact Hyperpixelacity-debug-APK. Later documentation/wrapper-only commits do not change this binary.
+
+## Motion Studio 0.2 preview
+Published at https://github.com/syedsuban070/SUPERNATURAL-HAND-GESTURES/releases/tag/v0.2.0-preview . Build 37200598283 passed compilation, lint, 13 JVM tests, two emulator tests, APK signature and ZIP alignment verification.
+
+APK source commit: `65055e02e66d3c7bbca4b93c58c82ad1e4be6549`.
+
+APK SHA-256: `7e3850f3b9e2823887a65019e66d308565189732fc96f71b540c524359f1aa51`.
+
+Camera/real-hand/thermal QA is still unverified on physical phones. See UPDATE_0_2.md. Subsequent CI-only commits strengthen launch verification without changing the published APK.

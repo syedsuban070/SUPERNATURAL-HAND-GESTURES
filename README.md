@@ -4,10 +4,13 @@
 An offline native Android camera studio for fingertip trails, energy orbs and gesture-controlled effects. Built for Evidence Of One.
 
 ## Download
-[Download the APK and related files](https://github.com/syedsuban070/SUPERNATURAL-HAND-GESTURES/releases/tag/v0.1.0-preview).
+[Download the APK and related files](https://github.com/syedsuban070/SUPERNATURAL-HAND-GESTURES/releases/tag/v0.2.0-preview).
 
 ## Current status
-A compiled development preview. CI build, lint, eight JVM tests, two Android emulator tests, APK signing and alignment verification pass. It is not yet physically device-tested or production-ready. Build results and test APKs appear under [Actions](https://github.com/syedsuban070/SUPERNATURAL-HAND-GESTURES/actions).
+A compiled development preview. CI build, lint, 13 JVM tests, two Android emulator tests, APK signing and alignment verification pass. It is not yet physically device-tested or production-ready. Build results and test APKs appear under [Actions](https://github.com/syedsuban070/SUPERNATURAL-HAND-GESTURES/actions).
+
+## New in 0.2
+Adaptive landmark filtering, safer gesture resets, refined trails and orbs, illustrated effect cards, Focus controls, three quick looks and live tracking diagnostics. [Details](docs/UPDATE_0_2.md).
 
 ## Implemented
 - Kotlin, Compose Material 3, Hilt and local DataStore settings.
