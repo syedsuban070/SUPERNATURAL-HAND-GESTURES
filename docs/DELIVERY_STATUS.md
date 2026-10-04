@@ -26,3 +26,13 @@ APK source commit: `65055e02e66d3c7bbca4b93c58c82ad1e4be6549`.
 APK SHA-256: `7e3850f3b9e2823887a65019e66d308565189732fc96f71b540c524359f1aa51`.
 
 Camera/real-hand/thermal QA is still unverified on physical phones. See UPDATE_0_2.md. Subsequent CI-only commits strengthen launch verification without changing the published APK.
+
+## Camera and gesture repair 0.2.1
+Published: https://github.com/syedsuban070/SUPERNATURAL-HAND-GESTURES/releases/tag/v0.2.1-preview .
+
+Build 37219437410 passed compilation, lint, 18 JVM regression tests, 3 emulator tests (including repeated front/back rebinding with one model initialization), rendered onboarding, signature and alignment verification.
+
+Source commit: `886e48772e2fdb80043ab28012ba676944ef44b2`.
+APK SHA-256: `27c5e07be9487784934c6673ba4642097dc59a232954f9e523e697e177acc6d0`.
+
+These are emulator/regression results, not a real-phone speed or gesture-success benchmark. See UPDATE_0_2_1.md for changes and limits.
