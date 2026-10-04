@@ -9,8 +9,9 @@ data class Hand(val id: String, val points: List<Point>, val handednessScore: Fl
     val palm get() = listOf(0,5,9,13,17).map { points[it] }.let { ps -> Point(ps.sumOf { it.x.toDouble() }.toFloat()/5,ps.sumOf { it.y.toDouble() }.toFloat()/5) }
     fun distance(a: Point, b: Point) = hypot(a.x-b.x, (a.y-b.y)/aspect.coerceAtLeast(.01f))
     val width get() = distance(points[5], points[17]).coerceAtLeast(0.001f)
-    val pinchRatio get() = distance(points[4],points[8])/width
-    val open get() = points.all { it.x in 0f..1f && it.y in 0f..1f } && listOf(8,12,16,20).count { distance(points[it],points[0]) > distance(points[it-2],points[0])*1.15f } >= 4
+    // Use palm length as a floor: side-on palms must not make pinch thresholds collapse.
+    val pinchRatio get() = distance(points[4],points[8])/maxOf(width,distance(points[0],points[9])*.65f)
+    val open get() = points.all { it.x in -.03f..1.03f && it.y in -.03f..1.03f } && listOf(8,12,16,20).count { distance(points[it],points[0]) > distance(points[it-2],points[0])*1.08f } >= 3
     val indexExtended get() = distance(points[8],points[0]) > distance(points[6],points[0])*1.15f
     val valid get() = points.size == 21 && points.all { it.x.isFinite() && it.y.isFinite() && it.z.isFinite() && it.x in -0.1f..1.1f && it.y in -0.1f..1.1f }
 }

@@ -70,7 +70,7 @@ class GestureEngineTest {
   val e=GestureEngine();val s=StudioSettings(effect=6)
   e.update(100,listOf(hand(pinch=.1f)),s)
   assertTrue(e.update(210,listOf(hand(pinch=.1f)),s).pinched)
-  assertFalse(e.update(700,listOf(hand(pinch=.1f)),s).pinched)
+  assertFalse(e.update(1600,listOf(hand(pinch=.1f)),s).pinched)
  }
  @Test fun changingEffectResetsChargedObject() {
   val e=GestureEngine();val pair=listOf(hand(),hand("Right",.7f))
@@ -96,5 +96,33 @@ class GestureEngineTest {
   var p=Point(.2f,.5f)
   repeat(6){p=filter.update(List(21){Point(.8f,.5f)},.033f)[0]}
   assertTrue(p.x>.72f)
+ }
+
+ @Test fun slowPhoneCanStillAcquirePinch() {
+  val e=GestureEngine();val s=StudioSettings(effect=6)
+  assertFalse(e.update(100,listOf(hand(pinch=.4f)),s).pinched)
+  assertTrue(e.update(450,listOf(hand(pinch=.4f)),s).pinched)
+ }
+ @Test fun rawPinchRecognitionDoesNotWaitForVisualSmoothing() {
+  val e=GestureEngine();val s=StudioSettings(effect=6)
+  e.update(100,listOf(hand(pinch=.9f)),s)
+  e.update(133,listOf(hand(pinch=.35f)),s)
+  assertTrue(e.update(200,listOf(hand(pinch=.35f)),s).pinched)
+ }
+ @Test fun rightHandPinchWorksWithIdleLeftHandVisible() {
+  val e=GestureEngine();val s=StudioSettings(effect=6)
+  val pair=listOf(hand(pinch=.9f),hand("Right",.7f,.3f))
+  e.update(100,pair,s)
+  assertTrue(e.update(200,pair,s).pinched)
+  assertTrue(e.update(250,pair,s).pinched)
+ }
+ @Test fun slowPhoneCanChargeOrb() {
+  val e=GestureEngine();val s=StudioSettings(effect=1);val pair=listOf(hand(),hand("Right",.7f))
+  e.update(100,pair,s);e.update(450,pair,s)
+  assertEquals(OrbState.HELD,e.update(800,pair,s).state)
+ }
+ @Test fun relaxedPalmAcceptsThreeExtendedFingers() {
+  val h=hand();val p=h.points.toMutableList();p[20]=Point(.35f,.65f)
+  assertTrue(h.copy(points=p).open)
  }
 }

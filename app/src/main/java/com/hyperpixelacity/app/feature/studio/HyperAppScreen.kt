@@ -106,7 +106,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
  var focus by rememberSaveable { mutableStateOf(false) }
  var front by rememberSaveable { mutableStateOf(true) }
  var retry by remember { mutableIntStateOf(0) }
- val camera=remember(front,s.mirror,s.quality,retry) { CameraStudio(context) }
+ val camera=remember(retry) { CameraStudio(context) }
  val preview=remember(camera) { PreviewView(context).apply { implementationMode=PreviewView.ImplementationMode.COMPATIBLE;scaleType=PreviewView.ScaleType.FIT_CENTER } }
  val status by camera.status.collectAsStateWithLifecycle()
  val scope=rememberCoroutineScope()
@@ -114,12 +114,13 @@ fun HyperAppScreen(vm:StudioViewModel) {
  var countdownJob by remember { mutableStateOf<Job?>(null) }
  LaunchedEffect(s,camera) { camera.configure(s) }
  DisposableEffect(camera,owner) {
-  camera.configure(s);camera.bind(owner,preview,front)
+  camera.configure(s)
   val observer=LifecycleEventObserver { _,event -> if(event==Lifecycle.Event.ON_STOP) { countdownJob?.cancel();count=0;camera.stop() } }
   owner.lifecycle.addObserver(observer)
   onDispose { countdownJob?.cancel();count=0;owner.lifecycle.removeObserver(observer);camera.close() }
  }
- val busy=status.recording || status.finalizing || count>0
+ LaunchedEffect(camera,owner,front,s.mirror,s.quality) { camera.bind(owner,preview,front) }
+ val busy=status.switching || status.recording || status.finalizing || count>0
  val header: @Composable () -> Unit = {
    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
@@ -133,7 +134,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
     status.error?.let { error -> Surface(color=MaterialTheme.colorScheme.errorContainer,shape=RoundedCornerShape(16.dp)) {
      Column(Modifier.padding(12.dp)) { Text(error,color=MaterialTheme.colorScheme.onErrorContainer);if(!busy)TextButton({ retry++ }) { Text("Retry studio") } }
     } }
-    if(s.debug) Surface(color=Color(0xDD202326)) { Text("${status.trackingHz} tracking updates/s · ${status.inferenceMs} ms processing\n${status.hands} hands · ${listOf("Low","Balanced","High")[s.quality]} · depth unavailable",Modifier.padding(10.dp),style=MaterialTheme.typography.labelSmall) }
+    if(s.debug) Surface(color=Color(0xDD202326)) { Text("Flip ${status.switchMs} ms · ${status.trackingHz} updates/s · ${status.inferenceMs} ms processing\n${status.hands} hands · ${listOf("Low","Balanced","High")[s.quality]} · depth unavailable",Modifier.padding(10.dp),style=MaterialTheme.typography.labelSmall) }
    }
  }
  val controls: @Composable () -> Unit = {
@@ -143,7 +144,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
      if(!focus) Text(Effects.all[s.effect].guide,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      if(!focus) LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { items(Effects.all) { e -> FilterChip(s.effect==e.id,{save(s.copy(effect=e.id,hue=0))},{Text(e.name)},enabled=!busy) } }
      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
-      TextButton({ front=!front },enabled=!busy) { Text("Flip") }
+      TextButton({ front=!front },enabled=!busy) { Text(if(status.switching)"Switching…" else "Flip") }
       Button({
        if(count>0) { countdownJob?.cancel();count=0 }
        else if(status.recording)camera.stop()
@@ -251,7 +252,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
    Text("Private by design",style=MaterialTheme.typography.titleLarge)
    Text("Hand tracking runs on this phone. This app has no network or microphone permission. Videos are saved to Movies/Hyperpixelacity. Only Share sends a clip to an app you choose.")
    Text("Depth and finger occlusion are not available in this preview. Effects may appear in front of your hands. Camera motion and dim light can reduce tracking quality.")
-   HorizontalDivider();Text("Hyperpixelacity • 0.2.0",style=MaterialTheme.typography.titleMedium)
+   HorizontalDivider();Text("Hyperpixelacity • 0.2.1",style=MaterialTheme.typography.titleMedium)
    Text("Create cinematic powers with your hands.\nMade for Evidence Of One.\nFictional digital effects. Not supernatural abilities.")
    Text("Built with AndroidX, Kotlin, Hilt and MediaPipe. Third-party notices are included in the source repository.",style=MaterialTheme.typography.bodySmall)
    Spacer(Modifier.height(28.dp))

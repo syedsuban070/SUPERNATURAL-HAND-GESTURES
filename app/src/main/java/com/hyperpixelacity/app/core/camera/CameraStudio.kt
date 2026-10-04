@@ -19,7 +19,7 @@ import java.util.concurrent.Executors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-data class CameraStatus(val ready:Boolean=false,val trackingHz:Int=0,val inferenceMs:Long=0,val charge:Float=0f,val hands:Int=0,val gesture:String="Show your hands",val recording:Boolean=false,val finalizing:Boolean=false,val duration:Long=0,val error:String?=null,val saved:Uri?=null)
+data class CameraStatus(val ready:Boolean=false,val switching:Boolean=false,val switchMs:Long=0,val modelStarts:Int=0,val trackingHz:Int=0,val inferenceMs:Long=0,val charge:Float=0f,val hands:Int=0,val gesture:String="Show your hands",val recording:Boolean=false,val finalizing:Boolean=false,val duration:Long=0,val error:String?=null,val saved:Uri?=null)
 class CameraStudio(private val context:Context) : AutoCloseable {
  private val main=ContextCompat.getMainExecutor(context)
  private val analysis=Executors.newSingleThreadExecutor()
@@ -31,21 +31,32 @@ class CameraStudio(private val context:Context) : AutoCloseable {
  private var capture:VideoCapture<Recorder>?=null
  private var recorder:Recording?=null
  private var processor:MagicProcessor?=null
- private var tracker:HandTracker?=null
+ @Volatile private var tracker:HandTracker?=null
+ private var trackerStarted=false
  private var engine=GestureEngine()
  @Volatile private var settings=StudioSettings()
  @Volatile private var closed=false
- private var generation=0
+ @Volatile private var generation=0
+ private var lastEpoch=-1
+ private val handler=android.os.Handler(android.os.Looper.getMainLooper())
  private var lastAnalyzed=0L
  private var lastEffect=-1
  private var lastResult=0L
  private var lastStatus=0L
  private var trackingHz=0f
  fun configure(s:StudioSettings) { settings=s;processor?.configure(s) }
- private fun fail(message:String) { main.execute { mutable.value=mutable.value.copy(error=message) } }
+ private fun fail(message:String) { main.execute { if(!closed) mutable.value=mutable.value.copy(error=message,switching=false) } }
  @androidx.annotation.OptIn(markerClass = [ExperimentalMirrorMode::class])
  fun bind(owner:LifecycleOwner,view:PreviewView,front:Boolean) {
+  if(closed || mutable.value.recording || mutable.value.finalizing)return
   val ticket=++generation
+  val started=android.os.SystemClock.elapsedRealtime()
+  mutable.value=mutable.value.copy(ready=false,switching=true,hands=0,charge=0f,error=null,gesture="Switching camera…")
+  handler.postDelayed({ if(!closed && ticket==generation && mutable.value.switching) fail("Camera is taking too long. Tap Retry studio.") },8000)
+  analyzer?.clearAnalyzer()
+  listOfNotNull(preview,analyzer,capture).takeIf { it.isNotEmpty() }?.let { provider?.unbind(*it.toTypedArray()) }
+  processor?.reset()
+  lastAnalyzed=0
   val future=ProcessCameraProvider.getInstance(context)
   future.addListener({
    if(closed || ticket!=generation)return@addListener
@@ -53,10 +64,15 @@ class CameraStudio(private val context:Context) : AutoCloseable {
     provider=future.get()
     val selector=if(front)CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
     if(!provider!!.hasCamera(selector)) { fail("This camera is unavailable.");return@addListener }
-    processor=MagicProcessor(context,::fail)
+    if(processor==null)processor=MagicProcessor(context,::fail)
+    if(!trackerStarted) {
+    trackerStarted=true
+    mutable.value=mutable.value.copy(modelStarts=mutable.value.modelStarts+1)
     analysis.execute {
      try {
-      tracker=HandTracker(context,{ time,hands,matrix,w,h,latency ->
+      tracker=HandTracker(context,{ time,hands,matrix,w,h,latency,epoch ->
+       if(!closed && epoch==generation) {
+       if(lastEpoch!=epoch){engine.reset();lastEpoch=epoch;lastResult=0;lastStatus=0;trackingHz=0f}
        if(lastEffect!=settings.effect) { engine.reset();lastEffect=settings.effect }
        val scene=engine.update(time,hands,settings)
        processor?.update(scene,settings,matrix,w,h)
@@ -77,11 +93,13 @@ class CameraStudio(private val context:Context) : AutoCloseable {
          scene.charge>0->"Power active"
          else->"Open your palm and hold steady"
         }
-        main.execute { if(!closed) mutable.value=mutable.value.copy(hands=scene.hands.size,gesture=message,trackingHz=trackingHz.toInt(),inferenceMs=latency,charge=scene.charge) }
+        main.execute { if(!closed && epoch==generation) mutable.value=mutable.value.copy(hands=scene.hands.size,gesture=message,trackingHz=trackingHz.toInt(),inferenceMs=latency,charge=scene.charge) }
+       }
        }
       },::fail)
      } catch(e:Exception) { fail("The hand model could not start on this device.") }
      catch(e:LinkageError) { fail("Hand tracking is not supported by this device CPU.") }
+    }
     }
     val mirror=if(settings.mirror) MirrorMode.MIRROR_MODE_ON_FRONT_ONLY else MirrorMode.MIRROR_MODE_OFF
     val rotation=view.display?.rotation?:Surface.ROTATION_0
@@ -89,9 +107,11 @@ class CameraStudio(private val context:Context) : AutoCloseable {
     analyzer=ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
      .setResolutionSelector(ResolutionSelector.Builder().setResolutionStrategy(ResolutionStrategy(Size(640,480),ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)).build())
      .setTargetRotation(rotation).build().also { use -> use.setAnalyzer(analysis) { image ->
+      if(closed || ticket!=generation) {image.close();return@setAnalyzer}
+      if(!mutable.value.ready) main.execute { if(!closed && ticket==generation && !mutable.value.ready) mutable.value=mutable.value.copy(ready=true,switching=false,switchMs=android.os.SystemClock.elapsedRealtime()-started,gesture="Show your hands") }
       val time=image.imageInfo.timestamp/1_000_000
       val interval=when(settings.quality) { 0->66;2->33;else->42 }
-      if(closed || time-lastAnalyzed<interval || tracker==null) image.close() else { lastAnalyzed=time;tracker?.analyze(image) }
+      if(closed || time>=lastAnalyzed && time-lastAnalyzed<interval || tracker==null) image.close() else { lastAnalyzed=time;tracker?.analyze(image,ticket) }
      } }
     val desired=if(settings.quality==0) Quality.SD else Quality.HD
     val rec=Recorder.Builder().setQualitySelector(QualitySelector.from(desired,FallbackStrategy.lowerQualityOrHigherThan(desired))).build()
@@ -104,12 +124,12 @@ class CameraStudio(private val context:Context) : AutoCloseable {
      provider!!.bindToLifecycle(owner,selector,group(false))
      fail("Live effects available; this camera cannot combine tracking and recording.")
     }
-    mutable.value=mutable.value.copy(ready=true)
+
    } catch(e:Exception) { fail("Camera could not start. Close other camera apps and retry.") }
   },main)
  }
  fun record() {
-  if(closed || mutable.value.recording || mutable.value.finalizing)return
+  if(closed || !mutable.value.ready || mutable.value.switching || mutable.value.recording || mutable.value.finalizing)return
   val video=capture?:run { fail("Recording is unavailable for this camera configuration.");return }
   try {
    val values=ContentValues().apply {
@@ -136,7 +156,7 @@ class CameraStudio(private val context:Context) : AutoCloseable {
  fun stop() { if(recorder!=null) { mutable.value=mutable.value.copy(recording=false,finalizing=true);recorder?.stop() } }
  override fun close() {
   if(closed)return
-  closed=true;generation++;stop();analyzer?.clearAnalyzer()
+  closed=true;generation++;handler.removeCallbacksAndMessages(null);stop();analyzer?.clearAnalyzer()
   listOfNotNull(preview,analyzer,capture).takeIf { it.isNotEmpty() }?.let { provider?.unbind(*it.toTypedArray()) }
   analysis.execute { tracker?.close();tracker=null }
   analysis.shutdown();processor?.close();processor=null

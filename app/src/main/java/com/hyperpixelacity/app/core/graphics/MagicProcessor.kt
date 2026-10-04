@@ -32,6 +32,7 @@ class MagicProcessor(context:Context, private val error:(String)->Unit) : Surfac
  private data class Packet(val scene:Scene,val settings:StudioSettings,val sensorToAnalysis:Matrix,val width:Int,val height:Int)
  private val pending=AtomicReference<Packet?>(null)
  private var scene=Scene()
+ private var receivedAt=0L
  private var settings=StudioSettings()
  private var analysisToSensor=Matrix()
  private var analysisWidth=1
@@ -48,6 +49,7 @@ class MagicProcessor(context:Context, private val error:(String)->Unit) : Surfac
   // Replace stale tracking snapshots rather than queuing them behind GPU work.
   pending.set(Packet(next,s,Matrix(sensorToAnalysis),w,h))
  }
+ fun reset() { executor.execute { pending.set(null);scene=Scene();receivedAt=0 } }
  fun configure(s:StudioSettings) { executor.execute { settings=s } }
  private fun init() {
   if(display!=EGL14.EGL_NO_DISPLAY) return
@@ -123,11 +125,15 @@ void main(){ gl_Position=vec4(aPosition,0.0,1.0);vCamera=(uTransform*vec4(aPosit
  }
  private fun draw(texture:SurfaceTexture,textureName:Int,w:Int,h:Int,matrix:Matrix) {
   pending.getAndSet(null)?.let { packet ->
+   receivedAt=android.os.SystemClock.elapsedRealtime()
    scene=packet.scene;settings=packet.settings;analysisWidth=packet.width;analysisHeight=packet.height
    if(!packet.sensorToAnalysis.invert(analysisToSensor)) scene=Scene()
   }
-  val time=texture.timestamp/1_000_000
-  val fresh=time-scene.timeMs in -40..200
+  // Camera timestamps measure capture, not when a slow CPU finishes inference.
+  // Keep recent results visible; expire them by receipt age to avoid ghost effects.
+  val ageSinceResult=(android.os.SystemClock.elapsedRealtime()-receivedAt).coerceAtLeast(0)
+  val time=scene.timeMs+ageSinceResult
+  val fresh=receivedAt>0 && ageSinceResult<=800
   val center=map(scene.center,matrix,w,h)
   val edge=map(Point(scene.center.x+scene.radius,scene.center.y),matrix,w,h)
   val radius=center.distance(edge).coerceIn(.01f,.35f)*settings.size
