@@ -161,7 +161,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
     }
    } }
  BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
-  AndroidView({ preview },Modifier.fillMaxSize())
+  key(camera) { AndroidView({ preview },Modifier.fillMaxSize()) }
   if(maxWidth > maxHeight) {
    Row(Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { header();if(count>0)Text(count.toString(),style=MaterialTheme.typography.displayLarge) }
