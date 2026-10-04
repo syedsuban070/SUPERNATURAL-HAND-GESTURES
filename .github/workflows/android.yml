@@ -8,7 +8,7 @@ concurrency:
   group: android-main
   cancel-in-progress: true
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -83,3 +83,19 @@ jobs:
         with:
           name: Android-test-reports
           path: app/build/reports/
+      - name: Publish Motion Studio preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p delivery
+          cp app/build/outputs/apk/debug/app-debug.apk delivery/Hyperpixelacity-0.2.0-preview.apk
+          cp docs/UPDATE_0_2.md delivery/UPDATE_0_2.md
+          cp docs/DEVICE_QA.md docs/THIRD_PARTY_NOTICES.md delivery/
+          cp app/build/reports/onboarding.png delivery/onboarding.png
+          zip -qr delivery/Android-test-reports.zip app/build/reports
+          (cd delivery && sha256sum Hyperpixelacity-0.2.0-preview.apk > SHA256SUMS.txt)
+          if ! gh release view v0.2.0-preview >/dev/null 2>&1; then
+            gh release create v0.2.0-preview delivery/* --target "$GITHUB_SHA" --title 'Hyperpixelacity 0.2 — Motion Studio preview' --prerelease --notes-file docs/UPDATE_0_2.md
+          fi

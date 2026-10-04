@@ -11,9 +11,10 @@ import com.hyperpixelacity.app.core.model.*
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Input buffer coordinates are retained for precise mapping through sensor space. */
-class HandTracker(context: Context, private val onResult: (Long,List<Hand>,Matrix,Int,Int)->Unit, private val onError: (String)->Unit) : AutoCloseable {
+class HandTracker(context: Context, private val onResult: (Long,List<Hand>,Matrix,Int,Int,Long)->Unit, private val onError: (String)->Unit) : AutoCloseable {
  private val busy=AtomicBoolean(false)
  private var timestamp=0L
+ private var started=0L
  private var matrix=Matrix()
  private var width=1
  private var height=1
@@ -30,13 +31,14 @@ class HandTracker(context: Context, private val onResult: (Long,List<Hand>,Matri
      fun inverse(x:Float,y:Float):Point = when(rotation) { 90->Point(y,1-x);180->Point(1-x,1-y);270->Point(1-y,x);else->Point(x,y) }
      Hand(result.handedness()[i].first().categoryName(),ps.map { inverse(it.x(),it.y()).copy(z=it.z()) },result.handedness()[i].first().score(),result.worldLandmarks()[i].map { Point(it.x(),it.y(),it.z()) },width.toFloat()/height)
     }
-    onResult(result.timestampMs(),hands,Matrix(matrix),width,height)
+    onResult(result.timestampMs(),hands,Matrix(matrix),width,height,android.os.SystemClock.elapsedRealtime()-started)
    } finally { releaseInput();busy.set(false) }
   }.setErrorListener { releaseInput();busy.set(false);onError("Hand tracking stopped. Reopen the studio to retry.") }.build())
  @Synchronized private fun releaseInput() { image?.close();image=null;bitmap?.recycle();bitmap=null }
  fun analyze(proxy:ImageProxy) {
   if(!busy.compareAndSet(false,true)) { proxy.close();return }
   try {
+   started=android.os.SystemClock.elapsedRealtime()
    width=proxy.width;height=proxy.height;rotation=proxy.imageInfo.rotationDegrees
    matrix=Matrix(proxy.imageInfo.sensorToBufferTransformMatrix)
    val raw=proxy.toBitmap()

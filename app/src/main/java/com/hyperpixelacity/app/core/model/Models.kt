@@ -10,9 +10,9 @@ data class Hand(val id: String, val points: List<Point>, val handednessScore: Fl
     fun distance(a: Point, b: Point) = hypot(a.x-b.x, (a.y-b.y)/aspect.coerceAtLeast(.01f))
     val width get() = distance(points[5], points[17]).coerceAtLeast(0.001f)
     val pinchRatio get() = distance(points[4],points[8])/width
-    val open get() = listOf(8,12,16,20).count { distance(points[it],points[0]) > distance(points[it-2],points[0])*1.15f } >= 4
+    val open get() = points.all { it.x in 0f..1f && it.y in 0f..1f } && listOf(8,12,16,20).count { distance(points[it],points[0]) > distance(points[it-2],points[0])*1.15f } >= 4
     val indexExtended get() = distance(points[8],points[0]) > distance(points[6],points[0])*1.15f
-    val valid get() = points.size == 21 && points.all { it.x.isFinite() && it.y.isFinite() && it.x in -0.1f..1.1f && it.y in -0.1f..1.1f }
+    val valid get() = points.size == 21 && points.all { it.x.isFinite() && it.y.isFinite() && it.z.isFinite() && it.x in -0.1f..1.1f && it.y in -0.1f..1.1f }
 }
 enum class OrbState { IDLE, CANDIDATE, CHARGING, HELD, PROJECTILE, COOLDOWN, LOST }
 data class Scene(val timeMs: Long = 0, val hands: List<Hand> = emptyList(), val center: Point = Point(.5f,.5f), val radius: Float = .1f, val charge: Float = 0f, val state: OrbState = OrbState.IDLE, val pinched: Boolean = false, val trail: List<Point> = emptyList(), val trailTimes: List<Long> = emptyList())

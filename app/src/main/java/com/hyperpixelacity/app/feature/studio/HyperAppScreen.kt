@@ -103,6 +103,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
    TextButton({ navigate("effects") }) { Text("Explore effects") }
   };return
  }
+ var focus by rememberSaveable { mutableStateOf(false) }
  var front by rememberSaveable { mutableStateOf(true) }
  var retry by remember { mutableIntStateOf(0) }
  val camera=remember(front,s.mirror,s.quality,retry) { CameraStudio(context) }
@@ -123,23 +124,24 @@ fun HyperAppScreen(vm:StudioViewModel) {
    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
      Surface(color=Color(0xDD202326),shape=RoundedCornerShape(24.dp)) { Text("HYPERPIXELACITY",Modifier.padding(14.dp),style=MaterialTheme.typography.labelLarge) }
-     FilledTonalButton({ navigate("settings") },enabled=!busy) { Text("Settings") }
+     TextButton({ focus=!focus }) { Text(if(focus)"Show controls" else "Focus",color=Color.White) }
     }
     Surface(color=Color(0xDD202326),shape=RoundedCornerShape(16.dp)) {
-     Text(if(status.recording) "REC  ${status.duration}s / 60s" else if(status.finalizing) "Saving video…" else "${status.hands} hands · ${status.gesture}",Modifier.padding(12.dp),style=MaterialTheme.typography.labelMedium)
+     Text(if(status.recording) "REC  ${status.duration}s / 60s" else if(status.finalizing) "Saving video…" else status.gesture,Modifier.padding(12.dp),style=MaterialTheme.typography.labelMedium)
     }
+    if(s.effect in 1..3 && status.charge>0 && !status.recording) LinearProgressIndicator(progress={status.charge},modifier=Modifier.width(180.dp))
     status.error?.let { error -> Surface(color=MaterialTheme.colorScheme.errorContainer,shape=RoundedCornerShape(16.dp)) {
      Column(Modifier.padding(12.dp)) { Text(error,color=MaterialTheme.colorScheme.onErrorContainer);if(!busy)TextButton({ retry++ }) { Text("Retry studio") } }
     } }
-    if(s.debug) Surface(color=Color(0xDD202326)) { Text("GL ES 3 · ${listOf("Low","Balanced","High")[s.quality]}\nDepth: unavailable · tracking confidence: not exposed",Modifier.padding(10.dp),style=MaterialTheme.typography.labelSmall) }
+    if(s.debug) Surface(color=Color(0xDD202326)) { Text("${status.trackingHz} tracking updates/s · ${status.inferenceMs} ms processing\n${status.hands} hands · ${listOf("Low","Balanced","High")[s.quality]} · depth unavailable",Modifier.padding(10.dp),style=MaterialTheme.typography.labelSmall) }
    }
  }
  val controls: @Composable () -> Unit = {
    Surface(color=Color(0xEC202326),shape=RoundedCornerShape(28.dp)) {
     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
      Text(Effects.all[s.effect].name,style=MaterialTheme.typography.titleLarge)
-     Text(Effects.all[s.effect].guide,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { items(Effects.all) { e -> FilterChip(s.effect==e.id,{save(s.copy(effect=e.id,hue=0))},{Text(e.name)},enabled=!busy) } }
+     if(!focus) Text(Effects.all[s.effect].guide,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     if(!focus) LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { items(Effects.all) { e -> FilterChip(s.effect==e.id,{save(s.copy(effect=e.id,hue=0))},{Text(e.name)},enabled=!busy) } }
      Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
       TextButton({ front=!front },enabled=!busy) { Text("Flip") }
       Button({
@@ -149,8 +151,9 @@ fun HyperAppScreen(vm:StudioViewModel) {
       },Modifier.heightIn(min=64.dp).widthIn(min=116.dp),enabled=status.ready && !status.finalizing) { Text(if(status.recording)"Stop" else if(count>0)"Cancel" else "Record") }
       TextButton({navigate("editor")},enabled=!busy) { Text("Tune") }
      }
-     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+     if(!focus) Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
       TextButton({navigate("effects")},enabled=!busy) { Text("Effects") }
+      TextButton({navigate("settings")},enabled=!busy) { Text("Settings") }
       TextButton({navigate("recordings")},enabled=!busy) { Text(if(status.saved!=null)"View saved clip" else "My clips") }
      }
      Text("Fictional digital effects · Silent video",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -190,7 +193,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
    items(Effects.all.filter { category=="All" || it.category==category || category=="Favorites" && it.id.toString() in s.favorites }) { e ->
     Card(Modifier.fillMaxWidth()) {
      Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-      Box(Modifier.size(42.dp).clip(CircleShape).background(Color(e.color)))
+      EffectArtwork(e)
       Text(e.name,style=MaterialTheme.typography.titleMedium)
       Text(e.category,style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
       Button({save(s.copy(effect=e.id,hue=0));back()},Modifier.fillMaxWidth()) {Text("Use effect")}
@@ -206,7 +209,13 @@ fun HyperAppScreen(vm:StudioViewModel) {
  Page("Tune your effect",back) {
   Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(16.dp)) {
    Text(Effects.all[draft.effect].name,style=MaterialTheme.typography.titleLarge)
-   Text("Your changes are saved on this phone.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+   EffectArtwork(Effects.all[draft.effect])
+   Text("Start with a look, then make it yours.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+    OutlinedButton({draft=draft.copy(intensity=.65f,glow=.5f,density=.2f,size=.8f)}) {Text("Soft")}
+    OutlinedButton({draft=draft.copy(intensity=1f,glow=1f,density=.5f,size=1f)}) {Text("Studio")}
+    OutlinedButton({draft=draft.copy(intensity=1.4f,glow=1.5f,density=.8f,size=1.2f)}) {Text("Epic")}
+   }
    Adjust("Intensity",draft.intensity,.2f..2f){draft=draft.copy(intensity=it)}
    Adjust("Size",draft.size,.4f..2f){draft=draft.copy(size=it)}
    Adjust("Glow",draft.glow,0f..2f){draft=draft.copy(glow=it)}
@@ -234,6 +243,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
    Text("Low reduces tracking frequency and disables sparks. Recording uses a supported 720p format where available.",style=MaterialTheme.typography.bodySmall)
    Toggle("Mirror selfie preview and video",s.mirror){save(s.copy(mirror=it))}
    Toggle("Reduce effect animation",s.reduceMotion){save(s.copy(reduceMotion=it))}
+   Text("Adaptive hand smoothing steadies slow gestures and follows faster movements. Keep your full hand visible for palm effects.",style=MaterialTheme.typography.bodySmall)
    Toggle("Tracking debug overlay",s.debug){save(s.copy(debug=it))}
    Text("Record countdown",style=MaterialTheme.typography.titleMedium)
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf(0,3,5).forEach { n->FilterChip(s.countdown==n,{save(s.copy(countdown=n))},{Text(if(n==0)"Off" else "$n seconds")}) } }
@@ -241,7 +251,7 @@ fun HyperAppScreen(vm:StudioViewModel) {
    Text("Private by design",style=MaterialTheme.typography.titleLarge)
    Text("Hand tracking runs on this phone. This app has no network or microphone permission. Videos are saved to Movies/Hyperpixelacity. Only Share sends a clip to an app you choose.")
    Text("Depth and finger occlusion are not available in this preview. Effects may appear in front of your hands. Camera motion and dim light can reduce tracking quality.")
-   HorizontalDivider();Text("Hyperpixelacity • 0.1.0",style=MaterialTheme.typography.titleMedium)
+   HorizontalDivider();Text("Hyperpixelacity • 0.2.0",style=MaterialTheme.typography.titleMedium)
    Text("Create cinematic powers with your hands.\nMade for Evidence Of One.\nFictional digital effects. Not supernatural abilities.")
    Text("Built with AndroidX, Kotlin, Hilt and MediaPipe. Third-party notices are included in the source repository.",style=MaterialTheme.typography.bodySmall)
    Spacer(Modifier.height(28.dp))

@@ -6,6 +6,8 @@ import kotlin.math.hypot
 /** Pure Kotlin. All thresholds use monotonic milliseconds, not frame counts. */
 class GestureEngine {
  private var previous = Scene()
+ private val filters=mutableMapOf<String,AdaptiveLandmarkFilter>()
+ private var selectedEffect=-1
  private var entered = 0L
  private var pinchCandidate = 0L
  private var pinchExit = 0L
@@ -14,16 +16,22 @@ class GestureEngine {
  private var launch = Point(.5f,.5f)
  private var trail = ArrayDeque<Pair<Point,Long>>()
  private var openSince = 0L
- fun reset() { previous=Scene(); entered=0; pinchCandidate=0; pinchExit=0; pinched=false; trail.clear(); openSince=0; velocity=Point(0f,0f) }
+ fun reset() { previous=Scene(); filters.clear(); entered=0; pinchCandidate=0; pinchExit=0; pinched=false; trail.clear(); openSince=0; velocity=Point(0f,0f) }
  fun update(time: Long, input: List<Hand>, settings: StudioSettings): Scene {
   if(time <= previous.timeMs) return previous
+  if(settings.effect!=selectedEffect || previous.timeMs>0 && time-previous.timeMs>250) {
+   reset();selectedEffect=settings.effect
+  }
   val dt=(time-previous.timeMs).coerceIn(1,100)/1000f
-  val hands=input.filter { it.valid }.sortedBy { it.id }.take(2).map { h ->
+  val valid=input.filter { it.valid }.distinctBy { it.id }.sortedBy { it.id }.take(2)
+  filters.keys.retainAll(valid.map { it.id }.toSet())
+  val hands=valid.map { h ->
    val old=previous.hands.find { it.id==h.id }
-   if(old==null || time-previous.timeMs>200 || old.palm.distance(h.palm)>.3f) h else h.copy(points=h.points.mapIndexed { i,p -> old.points[i].mix(p,1-exp(-dt*24)) })
+   if(old==null || old.palm.distance(h.palm)>.3f) filters.remove(h.id)
+   h.copy(points=filters.getOrPut(h.id){AdaptiveLandmarkFilter()}.update(h.points,dt))
   }
   val h=hands.firstOrNull()
-  if(h?.id!=previous.hands.firstOrNull()?.id || (h!=null && previous.hands.isNotEmpty() && h.palm.distance(previous.hands.first().palm)>.3f)) { trail.clear();pinched=false;pinchCandidate=0;pinchExit=0;velocity=Point(0f,0f) }
+  if(h?.id!=previous.hands.firstOrNull()?.id || (h!=null && previous.hands.isNotEmpty() && h.palm.distance(previous.hands.first().palm)>.3f)) { trail.clear();pinched=false;pinchCandidate=0;pinchExit=0;openSince=0;velocity=Point(0f,0f) }
   if(h==null) { pinched=false; pinchCandidate=0; pinchExit=0; openSince=0 }
   else {
    if(!pinched) {
@@ -50,7 +58,8 @@ class GestureEngine {
    if(pair) {
     val a=hands[0].palm;val b=hands[1].palm
     val next=Point((a.x+b.x)/2,(a.y+b.y)/2)
-    radius=(hands[0].distance(a,b)*.38f).coerceIn(.035f,.22f)
+    val targetRadius=(hands[0].distance(a,b)*.38f).coerceIn(.035f,.22f)
+    radius+= (targetRadius-radius)*(1-exp(-dt*14f))
     if(state==OrbState.IDLE || state==OrbState.LOST) transition(OrbState.CANDIDATE)
     if(state==OrbState.CANDIDATE && time-entered>=150) transition(OrbState.CHARGING)
     if(state==OrbState.CHARGING) { charge=((time-entered)/450f).coerceIn(0f,1f);if(charge>=1) transition(OrbState.HELD) }
@@ -76,7 +85,9 @@ class GestureEngine {
   while(trail.isNotEmpty() && time-trail.first().second>settings.trailSeconds*1000) trail.removeFirst()
   if(settings.effect==0 && h?.indexExtended==true) {
    val p=h.points[8]
-   if(trail.isEmpty() || trail.last().first.distance(p)>.003f) trail.addLast(p to time)
+   if(trail.isNotEmpty() && time-trail.last().second>180) trail.clear()
+   val interval=(settings.trailSeconds*1000/30).toLong().coerceAtLeast(16)
+   if(trail.isEmpty() || time-trail.last().second>=interval && trail.last().first.distance(p)>.002f) trail.addLast(p to time)
   } else if(h==null) trail.clear()
   while(trail.size>32) trail.removeFirst()
   previous=Scene(time,hands,center,radius,charge,state,pinched,trail.map { it.first },trail.map { it.second })

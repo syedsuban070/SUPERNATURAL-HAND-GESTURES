@@ -19,7 +19,7 @@ import java.util.concurrent.Executors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-data class CameraStatus(val ready:Boolean=false,val hands:Int=0,val gesture:String="Show your hands",val recording:Boolean=false,val finalizing:Boolean=false,val duration:Long=0,val error:String?=null,val saved:Uri?=null)
+data class CameraStatus(val ready:Boolean=false,val trackingHz:Int=0,val inferenceMs:Long=0,val charge:Float=0f,val hands:Int=0,val gesture:String="Show your hands",val recording:Boolean=false,val finalizing:Boolean=false,val duration:Long=0,val error:String?=null,val saved:Uri?=null)
 class CameraStudio(private val context:Context) : AutoCloseable {
  private val main=ContextCompat.getMainExecutor(context)
  private val analysis=Executors.newSingleThreadExecutor()
@@ -38,6 +38,9 @@ class CameraStudio(private val context:Context) : AutoCloseable {
  private var generation=0
  private var lastAnalyzed=0L
  private var lastEffect=-1
+ private var lastResult=0L
+ private var lastStatus=0L
+ private var trackingHz=0f
  fun configure(s:StudioSettings) { settings=s;processor?.configure(s) }
  private fun fail(message:String) { main.execute { mutable.value=mutable.value.copy(error=message) } }
  @androidx.annotation.OptIn(markerClass = [ExperimentalMirrorMode::class])
@@ -53,11 +56,29 @@ class CameraStudio(private val context:Context) : AutoCloseable {
     processor=MagicProcessor(context,::fail)
     analysis.execute {
      try {
-      tracker=HandTracker(context,{ time,hands,matrix,w,h ->
+      tracker=HandTracker(context,{ time,hands,matrix,w,h,latency ->
        if(lastEffect!=settings.effect) { engine.reset();lastEffect=settings.effect }
        val scene=engine.update(time,hands,settings)
        processor?.update(scene,settings,matrix,w,h)
-       main.execute { mutable.value=mutable.value.copy(hands=hands.size,gesture=if(hands.isEmpty())"Show your hands" else if(scene.pinched)"Pinch held" else scene.state.name.lowercase().replaceFirstChar { it.uppercase() }) }
+       if(lastResult>0 && time>lastResult) trackingHz=trackingHz*.8f+(.2f*1000f/(time-lastResult))
+       lastResult=time
+       if(time-lastStatus>=100) {
+        lastStatus=time
+        val message=when {
+         scene.hands.isEmpty()->"Show your hands in the frame"
+         settings.effect in 1..3 && scene.hands.size<2->"Bring both open palms into view"
+         scene.state==OrbState.CHARGING->"Hold steady · charging"
+         scene.state==OrbState.HELD->"Energy ready · move together to launch"
+         scene.state==OrbState.PROJECTILE->"Launched"
+         scene.state==OrbState.COOLDOWN->"Recharging"
+         scene.pinched->"Pinch held · move your crystal"
+         settings.effect==0->"Point your index finger to draw"
+         settings.effect==6 || settings.effect==9->"Touch thumb and index to summon"
+         scene.charge>0->"Power active"
+         else->"Open your palm and hold steady"
+        }
+        main.execute { if(!closed) mutable.value=mutable.value.copy(hands=scene.hands.size,gesture=message,trackingHz=trackingHz.toInt(),inferenceMs=latency,charge=scene.charge) }
+       }
       },::fail)
      } catch(e:Exception) { fail("The hand model could not start on this device.") }
      catch(e:LinkageError) { fail("Hand tracking is not supported by this device CPU.") }

@@ -22,11 +22,16 @@ void main(){
  vec3 fx=vec3(0.);
  float power=uCharge*uIntensity;
  if(uEffect==0){
+  float ribbon=0.;float core=0.;
   for(int i=1;i<32;i++){
    if(i>=uTrailCount)break;
    float dist=segment(vCamera*vec2(uAspect,1.),uTrail[i-1].xy*vec2(uAspect,1.),uTrail[i].xy*vec2(uAspect,1.));
-   fx+=uTrail[i].z*(uColor*halo(dist,.006+uGlow*.005)*.45+vec3(halo(dist,.0018))*.65)*uIntensity;
+   float age=uTrail[i].z;
+   float taper=mix(.35,1.,age);
+   ribbon=max(ribbon,age*halo(dist,(.004+uGlow*.007)*taper));
+   core=max(core,age*halo(dist,.0015*taper));
   }
+  fx=(uColor*ribbon*.85+vec3(core)*.9)*uIntensity;
  }else if(power>.001 && d<r*4.) {
  if(uEffect>=1 && uEffect<=3){
   float noise=sin(a*9.+uTime*3.)*sin(a*13.-uTime*2.)*.04;
@@ -34,6 +39,10 @@ void main(){
   fx=uColor*(halo(d,r*.6)*uGlow+shell*1.8)+vec3(halo(d,r*.14))*2.;
   if(uEffect==2)fx+=vec3(1.,.3,.03)*halo(d-r*(.9+.12*sin(a*7.+uTime*6.)),r*.08);
   if(uEffect==3)fx+=uColor*halo(abs(p.y+.15*sin(p.x*22.+uTime)*r)-r*.3,r*.025)*halo(d,r);
+  // Layered flowing bands give the sphere depth without a mesh or extra textures.
+  float band=sin(a*5.+d/r*12.-uTime*2.2)*sin(a*3.-d/r*7.+uTime);
+  float rim=halo(d-r*.87,r*.022);
+  fx+=uColor*(.18+.22*band)*halo(d-r*.55,r*.25)+vec3(rim)*.55;
   fx*=power;
  }else if(uEffect==4){
   for(int i=0;i<6;i++){float angle=float(i)*1.047+uTime*.12;vec2 q=rot(angle)*p;float jag=.08*r*sin(q.x/r*25.+uTime*12.)+.04*r*sin(q.x/r*59.-uTime*8.);fx+=(uColor*halo(q.y-jag,r*.045)+vec3(halo(q.y-jag,r*.012)))*step(0.,q.x)*step(q.x,r*1.8);}
@@ -58,5 +67,7 @@ void main(){
  }
  }
  for(int i=0;i<42;i++){if(i>=uLandmarkCount)break;float dd=length((vCamera-uLandmarks[i])*vec2(uAspect,1.));fx+=vec3(.3,1.,.65)*step(dd,.004);}
- fragColor=vec4(clamp(camera+fx,0.,1.),1.);
+ // Compress the emissive contribution so colored detail survives bright cores.
+ vec3 emission=1.-exp(-max(fx,vec3(0.)));
+ fragColor=vec4(clamp(camera+emission*(1.-camera*.72),0.,1.),1.);
 }
